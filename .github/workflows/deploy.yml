@@ -29,34 +29,37 @@ jobs:
 
       - name: Build and Organize
         run: |
-          # 1. 過去のビルド結果を完全にクリア
-          rm -rf dist final_site
-          mkdir -p final_site
+          # 1. 公開用と一時的な書き出し用フォルダを準備
+          rm -rf public out_template
+          mkdir -p public/template
 
-          # 2. スライドのビルド（デフォルトの dist フォルダに書き出されます）
-          # --base を /リポジトリ名/フォルダ名/ にすることで、URLとパスを一致させます
-          pnpm slidev build slides/template.md --base /twcu-mm1/template/
+          # 2. 出力先を --out で明示的に指定してビルド
+          pnpm slidev build slides/template.md --out out_template --base /twcu-mm1/template/
 
-          # 3. ビルドされたフォルダを final_site/template に移動
-          # Slidevの仕様で二重フォルダになった場合でも、index.htmlがある場所を正しく配置します
-          if [ -d "dist/template" ]; then
-            mv dist/template final_site/template
+          # 3. 生成されたファイルを public/template にコピー
+          # (フォルダが二重になっていても対応できる書き方です)
+          if [ -d "out_template/template" ]; then
+            cp -RL out_template/template/. public/template/
           else
-            mv dist final_site/template
+            cp -RL out_template/. public/template/
           fi
 
-          # 4. GitHub Pages 用のポータル目次と設定作成
-          echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>講義資料</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > final_site/index.html
-          touch final_site/.nojekyll
+          # 4. ポータルページ（目次）の作成
+          echo '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>講義資料リスト</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
+          touch public/.nojekyll
 
-      - name: Verify Structure
-        # アップロード直前の状態をログで確認
-        run: find final_site -maxdepth 2
+      - name: Verify Content
+        # 実際にファイルがコピーされたか、サイズとともに確認
+        run: |
+          echo "=== public/template の中身 ==="
+          ls -F public/template
+          echo "=== 全体のサイズ ==="
+          du -sh public
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'final_site'
+          path: 'public'
 
       - name: Deploy to GitHub Pages
         id: deployment
