@@ -27,37 +27,36 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and Move
+      - name: Build and Organize
         run: |
-          # 1. フォルダをきれいに掃除
-          rm -rf dist temp_build
-          mkdir -p dist/template
+          # 1. 過去のビルド結果を完全にクリア
+          rm -rf dist final_site
+          mkdir -p final_site
 
-          # 2. 一旦 'temp_build' にビルド
-          pnpm slidev build slides/template.md --out temp_build --base /twcu-mm1/template/
+          # 2. スライドのビルド（デフォルトの dist フォルダに書き出されます）
+          # --base を /リポジトリ名/フォルダ名/ にすることで、URLとパスを一致させます
+          pnpm slidev build slides/template.md --base /twcu-mm1/template/
 
-          # 3. 【解決の鍵】index.htmlがある場所を探して、dist/templateに根こそぎ移動
-          # Slidevが temp_build/ に作っても temp_build/template/ に作っても対応します
-          TARGET_DIR=$(find temp_build -name "index.html" -exec dirname {} \;)
-          echo "Found index.html in: $TARGET_DIR"
-          cp -r $TARGET_DIR/* dist/template/
+          # 3. ビルドされたフォルダを final_site/template に移動
+          # Slidevの仕様で二重フォルダになった場合でも、index.htmlがある場所を正しく配置します
+          if [ -d "dist/template" ]; then
+            mv dist/template final_site/template
+          else
+            mv dist final_site/template
+          fi
 
-          # 4. GitHub Pages用の設定と、ルート用の目次作成
-          touch dist/.nojekyll
-          echo '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > dist/index.html
+          # 4. GitHub Pages 用のポータル目次と設定作成
+          echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>講義資料</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > final_site/index.html
+          touch final_site/.nojekyll
 
-      - name: Final Check
-        # ここで「MB」単位のサイズが表示されれば成功です
-        run: |
-          echo "=== 公開フォルダの中身確認 ==="
-          ls -R dist/template
-          echo "=== フォルダ全体の容量確認 ==="
-          du -sh dist
+      - name: Verify Structure
+        # アップロード直前の状態をログで確認
+        run: find final_site -maxdepth 2
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'dist'
+          path: 'final_site'
 
       - name: Deploy to GitHub Pages
         id: deployment
