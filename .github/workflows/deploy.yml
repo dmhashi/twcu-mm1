@@ -26,14 +26,26 @@ jobs:
         run: pnpm install
 
       - name: Build
-        # 一旦、すべてのサブフォルダ設定を排除し、リポジトリ直下 (/twcu-mm1/) 専用にビルドします
+        # --out を指定せず、ビルド後にフォルダ構造を強制的に整える戦略に変えます
         run: |
-          rm -rf dist
-          pnpm slidev build slides/template.md --out dist --base /twcu-mm1/
+          pnpm slidev build slides/template.md --base /twcu-mm1/
+          
+          # もし dist/template に書き出されていたら、dist 直下に移動する
+          if [ -d "dist/template" ]; then
+            echo "Moving files from dist/template to dist root..."
+            cp -r dist/template/* dist/
+          fi
 
-      - name: Check dist directory
-        # ここで index.html が dist/ 直下にあることを確認します
-        run: ls -F dist
+      - name: Debug - List output files
+        # dist フォルダが空でないか確認（ここで 404 回避を確認）
+        run: |
+          echo "Current directory: $(pwd)"
+          if [ -d "dist" ]; then
+            ls -F dist
+          else
+            echo "Error: dist directory was not created!"
+            exit 1
+          fi
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
