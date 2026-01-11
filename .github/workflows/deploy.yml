@@ -27,35 +27,37 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and Organize
+      - name: Build and Search-Rescue
         run: |
-          # 1. 公開用フォルダのクリーンアップ
+          # 1. 公開用フォルダの作成
           rm -rf public
-          mkdir -p public
+          mkdir -p public/template
 
-          # 2. 最初から public/template にビルドさせる
-          pnpm slidev build slides/template.md --out public/template --base /twcu-mm1/template/
+          # 2. ビルドを実行（一旦デフォルトの dist に書き出させます）
+          pnpm slidev build slides/template.md --base /twcu-mm1/template/
 
-          # 3. OSに「書き込みを完了させろ」と命令（sync）
-          sync
-
-          # 4. 二重フォルダ問題を修正（もし public/template/template になっていたら上に上げる）
-          # フォルダ移動が確実に行われるよう、パスを1つずつ確認します
-          if [ -d "public/template/template" ]; then
-            echo "二重フォルダを検出しました。修正します。"
-            mv public/template/template/* public/template/
-            rm -rf public/template/template
+          # 3. 【捜索】全フォルダから、Slidevが作った1KB以上の index.html を探して救出
+          # node_modules 以外から index.html を探し、その場所を特定します
+          SEARCH_PATH=$(find . -path "./node_modules" -prune -o -name "index.html" -size +1k -printf '%h\n' | head -n 1)
+          
+          if [ -n "$SEARCH_PATH" ]; then
+            echo "Found slides at: $SEARCH_PATH"
+            cp -r $SEARCH_PATH/* public/template/
+          else
+            echo "Error: Slidev output (index.html) could not be found anywhere!"
+            exit 1
           fi
 
-          # 5. 目次ページの作成
+          # 4. ポータルの作成
           echo '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>講義資料リスト</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
           touch public/.nojekyll
 
-      - name: Final Verify
-        # 本当にファイルがあるか、意地でも確認します
+      - name: Final Integrity Check
         run: |
-          echo "--- public フォルダの中身 ---"
+          echo "=== 公開フォルダ構成 ==="
           ls -R public
+          echo "=== 合計サイズ ==="
+          du -sh public
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
