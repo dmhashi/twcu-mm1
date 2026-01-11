@@ -27,30 +27,45 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build Slides
+      - name: Build and Force Path Patch
         run: |
-          # 出力先をきれいに掃除
-          rm -rf public
+          # 1. フォルダの徹底掃除
+          rm -rf public dist
           mkdir -p public/template
 
-          # 標準的なビルド（--single-file を削除しました）
-          # --out に public/template を指定することで、ファイルをその中に閉じ込めます
-          pnpm slidev build slides/template.md --out public/template --base /twcu-mm1/template/
+          # 2. ビルドの実行（一旦 dist フォルダに出力）
+          # --base を指定しても Slidev が /template/ に短縮してしまう現象への対策です
+          pnpm slidev build slides/template.md --out dist --base /twcu-mm1/template/
 
-          # Slidevの仕様で public/template/template と二重になった場合の補正
-          if [ -d "public/template/template" ]; then
-            cp -r public/template/template/* public/template/
-            rm -rf public/template/template
+          # 3. ファイルの救出（dist または dist/template から public/template へ）
+          if [ -d "dist/template" ]; then
+            cp -r dist/template/* public/template/
+          else
+            cp -r dist/* public/template/
           fi
 
-          # ルートの目次ページを作成
-          echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>講義資料</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
+          # 4. 【解決の核心】HTML 内のリンクを物理的に書き換える
+          # ブラウザが探している "/template/assets/" を "/twcu-mm1/template/assets/" に強制置換
+          # また、もし "/assets/" となっている場合も修正します
+          if [ -f "public/template/index.html" ]; then
+            echo "Patching index.html paths..."
+            sed -i 's|href="/template/|href="/twcu-mm1/template/|g' public/template/index.html
+            sed -i 's|src="/template/|src="/twcu-mm1/template/|g' public/template/index.html
+            sed -i 's|href="/assets/|href="/twcu-mm1/template/assets/|g' public/template/index.html
+            sed -i 's|src="/assets/|src="/twcu-mm1/template/assets/|g' public/template/index.html
+          fi
+
+          # 5. ルートの目次ページを作成
+          echo '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>講義資料リスト</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
           touch public/.nojekyll
 
-      - name: Final Check
+      - name: Verify & Debug
+        # デプロイ直前のファイル構成と HTML の中身をログに出します
         run: |
-          echo "=== public フォルダの最終構成 ==="
-          ls -R public
+          echo "--- public フォルダの構成 ---"
+          find public -maxdepth 3
+          echo "--- index.html 内のパス確認 ---"
+          grep -o 'href="/[^"]*assets/[^"]*"' public/template/index.html | head -n 5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
