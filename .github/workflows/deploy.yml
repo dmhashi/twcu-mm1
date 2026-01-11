@@ -29,30 +29,30 @@ jobs:
 
       - name: Build Slides
         run: |
-          # 1. 出力先をきれいに掃除
-          rm -rf dist
+          # 1. 以前の残骸を掃除して、出力先フォルダを作成
+          rm -rf dist temp_build
           mkdir -p dist/template
 
-          # 2. 一旦 'temp_build' フォルダにビルド
+          # 2. 一旦 'temp_build' にビルドを実行
           pnpm slidev build slides/template.md --out temp_build --base /twcu-mm1/template/
 
-          # 3. temp_build の「中身」を dist/template に確実に移動する
-          # (二重フォルダ問題を無視して、index.htmlがある階層を探して移動)
+          # 3. 確実にファイルを移動 (アスタリスクではなくドットを使うことでエラーを回避)
           if [ -d "temp_build/template" ]; then
-            cp -r temp_build/template/* dist/template/
+            cp -a temp_build/template/. dist/template/
           else
-            cp -r temp_build/* dist/template/
+            cp -a temp_build/. dist/template/
           fi
 
-          # 4. GitHub Pages 用の無視設定回避ファイル
+          # 4. GitHub Pages 用の設定
           touch dist/.nojekyll
 
-          # 5. 【おまけ】リポジトリ直下 (/) にアクセスした時のための簡易目次を作成
-          echo '<p>Slides:</p><ul><li><a href="template/">Template Slide</a></li></ul>' > dist/index.html
+          # 5. リポジトリ直下にアクセスした際のメニューページを作成
+          echo '<!DOCTYPE html><html><body><h1>Slide List</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > dist/index.html
 
       - name: Final Directory Check
-        # ここで dist/template/index.html が存在するか確認
-        run: ls -R dist
+        run: |
+          echo "=== Content of dist/template ==="
+          ls -F dist/template
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
