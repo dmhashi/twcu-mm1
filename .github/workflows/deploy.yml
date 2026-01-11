@@ -26,8 +26,7 @@ jobs:
         run: pnpm install
 
       - name: Build
-        # --out dist とすることで、template フォルダを作らずに dist 直下に書き出します
-        # --base /twcu-mm1/ とすることで、リポジトリ直下で動くように設定します
+        # ハイフンを1つに修正しました
         run: pnpm slidev build slides/template.md --out dist --base /twcu-mm1/
 
       - name: Check dist directory
