@@ -27,35 +27,38 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build Template Slide
+      - name: Build and Relocate
         run: |
-          # 1. 出力先をきれいに掃除
-          rm -rf dist
-          mkdir -p dist/template
+          # 1. 過去のビルドを完全に削除
+          rm -rf dist temp_out final_dist
+          mkdir -p final_dist/template
 
-          # 2. 直接 dist/template フォルダにビルドする
-          pnpm slidev build slides/template.md --out dist/template --base /twcu-mm1/template/
+          # 2. スライドをビルド (一旦 temp_out に書き出し)
+          pnpm slidev build slides/template.md --out temp_out --base /twcu-mm1/template/
 
-          # 3. 【重要】もし dist/template/template という二重構造になったら中身を上に引き上げる
-          if [ -d "dist/template/template" ]; then
-            echo "Nested directory detected. Fixing structure..."
-            mv dist/template/template/* dist/template/
-            rm -rf dist/template/template
+          # 3. 【重要】index.html がある場所を特定して、final_dist/template に中身を移動
+          # Slidevが temp_out/ に作ったか、temp_out/template/ に作ったかを自動判別します
+          if [ -f "temp_out/template/index.html" ]; then
+            cp -r temp_out/template/* final_dist/template/
+          else
+            cp -r temp_out/* final_dist/template/
           fi
 
-          # 4. 公開用の設定ファイルを作成
-          touch dist/.nojekyll
-          echo '<!DOCTYPE html><html><body><h1>Lecture Slides</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > dist/index.html
+          # 4. GitHub Pages 用の設定
+          touch final_dist/.nojekyll
+          echo '<!DOCTYPE html><html><body><h1>Lecture Slides</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > final_dist/index.html
 
-      - name: Final Check
+      - name: Debug Output
+        # 最終的に公開されるファイル構成をログに表示
         run: |
-          echo "=== Checking dist/template content ==="
-          ls -F dist/template
+          echo "=== Final structure to be uploaded ==="
+          find final_dist -maxdepth 2
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'dist'
+          # 名前を final_dist に変更して確実にアップロード
+          path: 'final_dist'
 
       - name: Deploy to GitHub Pages
         id: deployment
