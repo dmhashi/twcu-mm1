@@ -29,33 +29,32 @@ jobs:
 
       - name: Build and Patch
         run: |
-          # 1. フォルダの準備
+          # 1. フォルダの掃除と作成
           rm -rf public dist
           mkdir -p public/template
 
-          # 2. ビルドの実行
+          # 2. ビルドの実行（一旦 dist フォルダに出力）
           pnpm slidev build slides/template.md --out dist --base /twcu-mm1/template/
 
-          # 3. ファイルの救出
-          if [ -d "dist/template" ]; then
-            cp -r dist/template/* public/template/
-          else
-            cp -r dist/* public/template/
+          # 3. 安全なコピー（アスタリスクを使わず . を使うことで確実に中身をコピー）
+          cp -a dist/. public/template/
+
+          # 4. パスの強制修正（パッチ）
+          # 万が一 Slidev が /template/assets と出力しても /twcu-mm1/template/assets に書き換えます
+          if [ -f "public/template/index.html" ]; then
+            sed -i 's|href="/template/|href="/twcu-mm1/template/|g' public/template/index.html
+            sed -i 's|src="/template/|src="/twcu-mm1/template/|g' public/template/index.html
           fi
 
-          # 4. 【重要】HTMLのパスを強制修正 (パッチ)
-          # /template/assets/ を /twcu-mm1/template/assets/ に書き換えます
-          sed -i 's|href="/template/|href="/twcu-mm1/template/|g' public/template/index.html
-          sed -i 's|src="/template/|src="/twcu-mm1/template/|g' public/template/index.html
-
-          # 5. ポータルの作成
+          # 5. ポータル目次の作成
           echo '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>講義資料リスト</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
           touch public/.nojekyll
 
       - name: Final Check
+        # 最終的にデプロイされるHTMLのパスが修正されているか確認
         run: |
-          echo "=== 修正後のHTMLソース（一部） ==="
-          grep "stylesheet" public/template/index.html | head -n 5
+          echo "=== 修正後のパス確認（href=... の部分） ==="
+          grep -o 'href="/twcu-mm1/template/assets/[^"]*"' public/template/index.html | head -n 3 || echo "Path already correct or grep failed"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
