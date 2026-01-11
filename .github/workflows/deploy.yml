@@ -27,25 +27,37 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build Slides
+      - name: Build and Force Relocate
         run: |
-          # 1. 出力先をきれいに掃除
-          rm -rf dist
-          mkdir -p dist
+          # 1. 作業用・公開用フォルダを完全にクリーンアップ
+          rm -rf dist temp_build
+          mkdir -p dist/template
 
-          # 2. 直接 dist/template にビルドする
-          # Slidevは指定したディレクトリにファイルを生成します
-          pnpm slidev build slides/template.md --out dist/template --base /twcu-mm1/template/
+          # 2. 一旦 'temp_build' という名前のフォルダにビルド
+          pnpm slidev build slides/template.md --out temp_build --base /twcu-mm1/template/
 
-          # 3. 共通設定とポータル（目次）の作成
+          # 3. 【ここが重要】Slidevが生成したファイルを「探し出して」dist/templateに移動
+          # temp_buildの直下にあるか、temp_build/templateの中にあるか自動で判別します
+          if [ -f "temp_build/template/index.html" ]; then
+            cp -r temp_build/template/* dist/template/
+          elif [ -f "temp_build/index.html" ]; then
+            cp -r temp_build/* dist/template/
+          else
+            echo "Error: Slidev output not found!"
+            exit 1
+          fi
+
+          # 4. GitHub Pages 用の設定と目次作成
           touch dist/.nojekyll
-          echo '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>講義資料リスト</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > dist/index.html
+          echo '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > dist/index.html
 
-      - name: Verify Directory Structure
-        # 実際にアップロードされる前に中身を「検索」して確認します
+      - name: Final Integrity Check
+        # アップロード直前のファイル構成とサイズをログに出力します
         run: |
-          echo "=== 最終的なファイル構成の確認 ==="
-          find dist -name "index.html"
+          echo "=== 公開フォルダの内容確認 ==="
+          ls -R dist
+          echo "=== フォルダ全体のサイズ確認 ==="
+          du -sh dist
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
