@@ -13,11 +13,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v2
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
         with:
           version: latest
 
-      - uses: actions/setup-node@v4
+      - name: Set Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
@@ -26,23 +28,31 @@ jobs:
         run: pnpm install
 
       - name: Build Slides
-        # 今後スライドが増えたら、ここに同じように行を追加するだけでOKです
         run: |
-          # 1. template.md を /twcu-mm1/template/ としてビルド
-          pnpm slidev build slides/template.md --out dist/template --base /twcu-mm1/template/
-          
-          # 【重要】Slidevが二重にフォルダを作った場合の補正
-          if [ -d "dist/template/template" ]; then
-            mv dist/template/template/* dist/template/
-            rm -rf dist/template/template
+          # 1. 出力先をきれいに掃除
+          rm -rf dist
+          mkdir -p dist/template
+
+          # 2. 一旦 'temp_build' フォルダにビルド
+          pnpm slidev build slides/template.md --out temp_build --base /twcu-mm1/template/
+
+          # 3. temp_build の「中身」を dist/template に確実に移動する
+          # (二重フォルダ問題を無視して、index.htmlがある階層を探して移動)
+          if [ -d "temp_build/template" ]; then
+            cp -r temp_build/template/* dist/template/
+          else
+            cp -r temp_build/* dist/template/
           fi
 
-      - name: Fix Assets Path
-        # ブラウザが /template/assets を見に行ってしまう問題を、
-        # /twcu-mm1/template/assets を見に行くように HTML を直接書き換えて強制解決します
-        run: |
-          sed -i 's|href="/template/|href="/twcu-mm1/template/|g' dist/template/index.html
-          sed -i 's|src="/template/|src="/twcu-mm1/template/|g' dist/template/index.html
+          # 4. GitHub Pages 用の無視設定回避ファイル
+          touch dist/.nojekyll
+
+          # 5. 【おまけ】リポジトリ直下 (/) にアクセスした時のための簡易目次を作成
+          echo '<p>Slides:</p><ul><li><a href="template/">Template Slide</a></li></ul>' > dist/index.html
+
+      - name: Final Directory Check
+        # ここで dist/template/index.html が存在するか確認
+        run: ls -R dist
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
