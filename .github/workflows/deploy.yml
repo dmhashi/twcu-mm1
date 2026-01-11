@@ -27,46 +27,30 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and Locate
+      - name: Build All Slides
         run: |
-          # 1. 公開用フォルダのクリーンアップ
-          rm -rf public
-          mkdir -p public/template
+          # 公開用フォルダの準備
+          rm -rf dist-final
+          mkdir -p dist-final/template
 
-          # 2. スライドのビルド（出力先は一旦Slidevに任せます）
-          pnpm slidev build slides/template.md --base /twcu-mm1/template/
+          # 【スライド1: template】を「単一のHTML」としてビルド
+          # --single-file オプションにより、すべてのデータが1枚のHTMLに凝縮されます
+          pnpm slidev build slides/template.md --single-file --out dist-final/template
 
-          # 3. 【救出】node_modules以外から、Slidevが生成した index.html を探し出す
-          # 見つかった場所の中身を public/template にコピーします
-          BUILD_DIR=$(find . -name "index.html" -not -path "./node_modules/*" -not -path "./public/*" -printf '%h\n' | head -n 1)
-          
-          if [ -n "$BUILD_DIR" ]; then
-            echo "Found slides in: $BUILD_DIR"
-            cp -r $BUILD_DIR/* public/template/
-          else
-            echo "Error: Slidev の出力ファイルが見つかりません。"
-            exit 1
-          fi
+          # ビルドされた index.html 以外の余計なフォルダを削除（念のため）
+          # 今後、別の講義を追加する場合は、ここに同じように build 命令を追加するだけです
 
-          # 4. ポータル目次の作成とパス修正
-          # 万が一のパスずれを強制修正
-          sed -i 's|href="/template/|href="/twcu-mm1/template/|g' public/template/index.html
-          sed -i 's|src="/template/|src="/twcu-mm1/template/|g' public/template/index.html
-          
-          echo '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>講義資料</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
-          touch public/.nojekyll
+          # ルートの目次ページを作成
+          echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>講義資料</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > dist-final/index.html
+          touch dist-final/.nojekyll
 
-      - name: Final Integrity Check
-        run: |
-          echo "=== public/template の中身を確認 ==="
-          ls -F public/template
-          echo "=== HTMLのパス修正結果を確認 ==="
-          grep -o 'href="/twcu-mm1/template/assets/[^"]*"' public/template/index.html | head -n 3 || echo "Check failed"
+      - name: Verify
+        run: ls -R dist-final
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'public'
+          path: 'dist-final'
 
       - name: Deploy to GitHub Pages
         id: deployment
