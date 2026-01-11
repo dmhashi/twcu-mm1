@@ -27,38 +27,47 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and Relocate
+      - name: Build All Slides
         run: |
-          # 1. 過去のビルドを完全に削除
-          rm -rf dist temp_out final_dist
-          mkdir -p final_dist/template
+          # 1. 公開用フォルダの準備
+          rm -rf dist temp_out
+          mkdir -p dist
 
-          # 2. スライドをビルド (一旦 temp_out に書き出し)
+          # 2. 【スライド1: template】のビルド
+          # 一旦 temp_out にビルドし、中身を dist/template に確実に移動する
           pnpm slidev build slides/template.md --out temp_out --base /twcu-mm1/template/
-
-          # 3. 【重要】index.html がある場所を特定して、final_dist/template に中身を移動
-          # Slidevが temp_out/ に作ったか、temp_out/template/ に作ったかを自動判別します
-          if [ -f "temp_out/template/index.html" ]; then
-            cp -r temp_out/template/* final_dist/template/
+          mkdir -p dist/template
+          # rsyncを使って、二重フォルダ問題を回避しつつ確実にコピー
+          if [ -d "temp_out/template" ]; then
+            rsync -a temp_out/template/ dist/template/
           else
-            cp -r temp_out/* final_dist/template/
+            rsync -a temp_out/ dist/template/
           fi
+          rm -rf temp_out
 
-          # 4. GitHub Pages 用の設定
-          touch final_dist/.nojekyll
-          echo '<!DOCTYPE html><html><body><h1>Lecture Slides</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > final_dist/index.html
+          # -----------------------------------------------------------
+          # 今後、別のスライド（例: lecture01.md）を増やしたい場合は
+          # 以下の3行をコピーしてここに追加するだけでOKです
+          # -----------------------------------------------------------
+          # pnpm slidev build slides/lecture01.md --out temp_out --base /twcu-mm1/lecture01/
+          # mkdir -p dist/lecture01
+          # [ -d "temp_out/lecture01" ] && rsync -a temp_out/lecture01/ dist/lecture01/ || rsync -a temp_out/ dist/lecture01/
+          # rm -rf temp_out
+          # -----------------------------------------------------------
 
-      - name: Debug Output
-        # 最終的に公開されるファイル構成をログに表示
+          # 3. 共通設定とポータル（目次）の作成
+          touch dist/.nojekyll
+          echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>講義資料リスト</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > dist/index.html
+
+      - name: Final Structure Check
         run: |
-          echo "=== Final structure to be uploaded ==="
-          find final_dist -maxdepth 2
+          echo "=== 公開されるファイル構成 ==="
+          find dist -maxdepth 2
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # 名前を final_dist に変更して確実にアップロード
-          path: 'final_dist'
+          path: 'dist'
 
       - name: Deploy to GitHub Pages
         id: deployment
