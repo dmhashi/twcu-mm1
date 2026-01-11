@@ -27,43 +27,33 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and Force Organize
+      - name: Build and Organize
         run: |
-          # 1. フォルダの徹底掃除
-          rm -rf public dist temp_out
+          # 1. 公開用フォルダの初期化
+          rm -rf public
           mkdir -p public/template
 
-          # 2. ビルドの実行（一旦 temp_out に書き出し）
-          pnpm slidev build slides/template.md --out temp_out --base /twcu-mm1/template/
+          # 2. ビルドの実行
+          # 直接 public/template フォルダに書き出させます
+          pnpm slidev build slides/template.md --out public/template --base /twcu-mm1/template/
 
-          # 3. 【解決の鍵】index.htmlがある階層を自動特定してコピー
-          # temp_out の直下か、その中の template フォルダか、中身がある方を選びます
-          if [ -f "temp_out/template/index.html" ]; then
-            cp -r temp_out/template/* public/template/
-          elif [ -f "temp_out/index.html" ]; then
-            cp -r temp_out/* public/template/
+          # 3. 【重要】Slidevの「二重フォルダ作成」を補正
+          # public/template/template/index.html のようになっていた場合、中身を引き上げます
+          if [ -d "public/template/template" ]; then
+            echo "Nesting detected. Fixing structure..."
+            cp -r public/template/template/* public/template/
+            rm -rf public/template/template
           fi
 
-          # 4. 【念のためのパス修正】
-          # HTML内の /template/ を /twcu-mm1/template/ に一括置換します
-          if [ -f "public/template/index.html" ]; then
-            sed -i 's|href="/template/|href="/twcu-mm1/template/|g' public/template/index.html
-            sed -i 's|src="/template/|src="/twcu-mm1/template/|g' public/template/index.html
-          else
-            echo "Error: index.html not found in public/template!"
-            exit 1
-          fi
-
-          # 5. ポータル（目次）の作成
-          echo '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>講義資料</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
+          # 4. ポータル目次と設定ファイルの作成
+          echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>講義資料</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
           touch public/.nojekyll
 
-      - name: Final Verification
+      - name: Verify and List
+        # アップロード直前の状態を意地でも確認します
         run: |
-          echo "=== 最終的なファイル配置 ==="
-          ls -R public
-          echo "=== index.html の中身（パス確認） ==="
-          grep "stylesheet" public/template/index.html | head -n 2
+          echo "=== public フォルダの最終構成 ==="
+          find public -maxdepth 3
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
