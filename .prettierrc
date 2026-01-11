@@ -1,0 +1,9 @@
+{
+  "plugins": ["prettier-plugin-slidev"],
+  "overrides": [
+    {
+      "files": "*.md",
+      "parser": "slidev"
+    }
+  ]
+}
