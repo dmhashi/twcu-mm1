@@ -27,36 +27,31 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and Force Relocate
+      - name: Build and Move
         run: |
-          # 1. 作業用・公開用フォルダを完全にクリーンアップ
+          # 1. フォルダをきれいに掃除
           rm -rf dist temp_build
           mkdir -p dist/template
 
-          # 2. 一旦 'temp_build' という名前のフォルダにビルド
+          # 2. 一旦 'temp_build' にビルド
           pnpm slidev build slides/template.md --out temp_build --base /twcu-mm1/template/
 
-          # 3. 【ここが重要】Slidevが生成したファイルを「探し出して」dist/templateに移動
-          # temp_buildの直下にあるか、temp_build/templateの中にあるか自動で判別します
-          if [ -f "temp_build/template/index.html" ]; then
-            cp -r temp_build/template/* dist/template/
-          elif [ -f "temp_build/index.html" ]; then
-            cp -r temp_build/* dist/template/
-          else
-            echo "Error: Slidev output not found!"
-            exit 1
-          fi
+          # 3. 【解決の鍵】index.htmlがある場所を探して、dist/templateに根こそぎ移動
+          # Slidevが temp_build/ に作っても temp_build/template/ に作っても対応します
+          TARGET_DIR=$(find temp_build -name "index.html" -exec dirname {} \;)
+          echo "Found index.html in: $TARGET_DIR"
+          cp -r $TARGET_DIR/* dist/template/
 
-          # 4. GitHub Pages 用の設定と目次作成
+          # 4. GitHub Pages用の設定と、ルート用の目次作成
           touch dist/.nojekyll
           echo '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > dist/index.html
 
-      - name: Final Integrity Check
-        # アップロード直前のファイル構成とサイズをログに出力します
+      - name: Final Check
+        # ここで「MB」単位のサイズが表示されれば成功です
         run: |
-          echo "=== 公開フォルダの内容確認 ==="
-          ls -R dist
-          echo "=== フォルダ全体のサイズ確認 ==="
+          echo "=== 公開フォルダの中身確認 ==="
+          ls -R dist/template
+          echo "=== フォルダ全体の容量確認 ==="
           du -sh dist
 
       - name: Upload artifact
