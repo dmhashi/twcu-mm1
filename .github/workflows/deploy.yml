@@ -27,31 +27,29 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build Slides
+      - name: Build Template Slide
         run: |
-          # 1. 以前の残骸を掃除して、出力先フォルダを作成
-          rm -rf dist temp_build
+          # 1. 出力先をきれいに掃除
+          rm -rf dist
           mkdir -p dist/template
 
-          # 2. 一旦 'temp_build' にビルドを実行
-          pnpm slidev build slides/template.md --out temp_build --base /twcu-mm1/template/
+          # 2. 直接 dist/template フォルダにビルドする
+          pnpm slidev build slides/template.md --out dist/template --base /twcu-mm1/template/
 
-          # 3. 確実にファイルを移動 (アスタリスクではなくドットを使うことでエラーを回避)
-          if [ -d "temp_build/template" ]; then
-            cp -a temp_build/template/. dist/template/
-          else
-            cp -a temp_build/. dist/template/
+          # 3. 【重要】もし dist/template/template という二重構造になったら中身を上に引き上げる
+          if [ -d "dist/template/template" ]; then
+            echo "Nested directory detected. Fixing structure..."
+            mv dist/template/template/* dist/template/
+            rm -rf dist/template/template
           fi
 
-          # 4. GitHub Pages 用の設定
+          # 4. 公開用の設定ファイルを作成
           touch dist/.nojekyll
+          echo '<!DOCTYPE html><html><body><h1>Lecture Slides</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > dist/index.html
 
-          # 5. リポジトリ直下にアクセスした際のメニューページを作成
-          echo '<!DOCTYPE html><html><body><h1>Slide List</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > dist/index.html
-
-      - name: Final Directory Check
+      - name: Final Check
         run: |
-          echo "=== Content of dist/template ==="
+          echo "=== Checking dist/template content ==="
           ls -F dist/template
 
       - name: Upload artifact
