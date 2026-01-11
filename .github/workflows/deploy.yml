@@ -2,7 +2,7 @@ name: Deploy Slidev to Pages
 
 on:
   push:
-    branches: [main] # mainブランチに更新があったら実行
+    branches: [main]
 
 jobs:
   deploy:
@@ -20,40 +20,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: "pnpm"
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install
 
-      # 【ここがポイント】スライドが増えたらここに行を追加します
-
       - name: Build
-        # 一旦、一番シンプルな設定で実行します
+        # ここで確実にビルドを実行
         run: pnpm slidev build slides/template.md --out dist --base /twcu-mm1/
 
-      - name: Diagnostic - List files
-        # dist フォルダの中身を、ログに強制表示させます
+      - name: Check dist directory
+        # ビルドされたファイルが本当に存在するか、ログに書き出す（重要！）
         run: |
-          echo "Checking the root of dist..."
-          ls -F dist
-          echo "Checking assets folder..."
-          ls -F dist/assets || echo "assets folder not found"
+          echo "=== Content of dist folder ==="
+          ls -R dist
 
       - name: Upload artifact
+        # 409エラーを避けるため、公式のデプロイ用ステップを1回だけ実行
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'dist' # ここがアップロードされるフォルダです
-
-    #ここまでが新たに追加した記述
- 
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: "dist"
+          path: 'dist'
 
       - name: Deploy to GitHub Pages
         id: deployment
