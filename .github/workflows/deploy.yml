@@ -27,45 +27,30 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and Force Path Patch
+      - name: Build and Move Slides
         run: |
-          # 1. フォルダの徹底掃除
-          rm -rf public dist
-          mkdir -p public/template
+          # 1. 公開用の親フォルダを作成
+          mkdir -p public
 
-          # 2. ビルドの実行（一旦 dist フォルダに出力）
-          # --base を指定しても Slidev が /template/ に短縮してしまう現象への対策です
-          pnpm slidev build slides/template.md --out dist --base /twcu-mm1/template/
+          # 2. 【スライド1: template】のビルド
+          # 出力先を dist-template と明示し、ビルド後にフォルダごと public/ に移動します
+          pnpm slidev build slides/template.md --out dist-template --base /twcu-mm1/template/
+          mv dist-template public/template
 
-          # 3. ファイルの救出（dist または dist/template から public/template へ）
-          if [ -d "dist/template" ]; then
-            cp -r dist/template/* public/template/
-          else
-            cp -r dist/* public/template/
-          fi
+          # -----------------------------------------------------------------
+          # 今後、新しい講義（例: lecture01.md）を増やしたい場合は、
+          # 以下の2行をここに追加するだけで、自動的に フォルダが分かれます。
+          # -----------------------------------------------------------------
+          # pnpm slidev build slides/lecture01.md --out dist-lec01 --base /twcu-mm1/lecture01/
+          # mv dist-lec01 public/lecture01
 
-          # 4. 【解決の核心】HTML 内のリンクを物理的に書き換える
-          # ブラウザが探している "/template/assets/" を "/twcu-mm1/template/assets/" に強制置換
-          # また、もし "/assets/" となっている場合も修正します
-          if [ -f "public/template/index.html" ]; then
-            echo "Patching index.html paths..."
-            sed -i 's|href="/template/|href="/twcu-mm1/template/|g' public/template/index.html
-            sed -i 's|src="/template/|src="/twcu-mm1/template/|g' public/template/index.html
-            sed -i 's|href="/assets/|href="/twcu-mm1/template/assets/|g' public/template/index.html
-            sed -i 's|src="/assets/|src="/twcu-mm1/template/assets/|g' public/template/index.html
-          fi
-
-          # 5. ルートの目次ページを作成
+          # 3. 共通ポータル（目次ページ）の作成
           echo '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>講義資料リスト</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
           touch public/.nojekyll
 
-      - name: Verify & Debug
-        # デプロイ直前のファイル構成と HTML の中身をログに出します
-        run: |
-          echo "--- public フォルダの構成 ---"
-          find public -maxdepth 3
-          echo "--- index.html 内のパス確認 ---"
-          grep -o 'href="/[^"]*assets/[^"]*"' public/template/index.html | head -n 5
+      - name: Directory Structure Verification
+        # 最後に、意地でもファイルがあるかログに表示させます
+        run: find public -maxdepth 3
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
