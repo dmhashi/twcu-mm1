@@ -27,37 +27,35 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and Search-Rescue
+      - name: Build and Patch
         run: |
-          # 1. 公開用フォルダの作成
-          rm -rf public
+          # 1. フォルダの準備
+          rm -rf public dist
           mkdir -p public/template
 
-          # 2. ビルドを実行（一旦デフォルトの dist に書き出させます）
-          pnpm slidev build slides/template.md --base /twcu-mm1/template/
+          # 2. ビルドの実行
+          pnpm slidev build slides/template.md --out dist --base /twcu-mm1/template/
 
-          # 3. 【捜索】全フォルダから、Slidevが作った1KB以上の index.html を探して救出
-          # node_modules 以外から index.html を探し、その場所を特定します
-          SEARCH_PATH=$(find . -path "./node_modules" -prune -o -name "index.html" -size +1k -printf '%h\n' | head -n 1)
-          
-          if [ -n "$SEARCH_PATH" ]; then
-            echo "Found slides at: $SEARCH_PATH"
-            cp -r $SEARCH_PATH/* public/template/
+          # 3. ファイルの救出
+          if [ -d "dist/template" ]; then
+            cp -r dist/template/* public/template/
           else
-            echo "Error: Slidev output (index.html) could not be found anywhere!"
-            exit 1
+            cp -r dist/* public/template/
           fi
 
-          # 4. ポータルの作成
+          # 4. 【重要】HTMLのパスを強制修正 (パッチ)
+          # /template/assets/ を /twcu-mm1/template/assets/ に書き換えます
+          sed -i 's|href="/template/|href="/twcu-mm1/template/|g' public/template/index.html
+          sed -i 's|src="/template/|src="/twcu-mm1/template/|g' public/template/index.html
+
+          # 5. ポータルの作成
           echo '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>講義資料リスト</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
           touch public/.nojekyll
 
-      - name: Final Integrity Check
+      - name: Final Check
         run: |
-          echo "=== 公開フォルダ構成 ==="
-          ls -R public
-          echo "=== 合計サイズ ==="
-          du -sh public
+          echo "=== 修正後のHTMLソース（一部） ==="
+          grep "stylesheet" public/template/index.html | head -n 5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
