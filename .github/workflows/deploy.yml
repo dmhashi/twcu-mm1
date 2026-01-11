@@ -27,30 +27,36 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and Move Slides
+      - name: Build and Rescue
         run: |
-          # 1. 公開用の親フォルダを作成
-          mkdir -p public
+          # 1. 公開用フォルダの準備
+          rm -rf public
+          mkdir -p public/template
 
-          # 2. 【スライド1: template】のビルド
-          # 出力先を dist-template と明示し、ビルド後にフォルダごと public/ に移動します
-          pnpm slidev build slides/template.md --out dist-template --base /twcu-mm1/template/
-          mv dist-template public/template
+          # 2. ビルドの実行（名前を決めず、一旦Slidevに任せます）
+          pnpm slidev build slides/template.md --base /twcu-mm1/template/
 
-          # -----------------------------------------------------------------
-          # 今後、新しい講義（例: lecture01.md）を増やしたい場合は、
-          # 以下の2行をここに追加するだけで、自動的に フォルダが分かれます。
-          # -----------------------------------------------------------------
-          # pnpm slidev build slides/lecture01.md --out dist-lec01 --base /twcu-mm1/lecture01/
-          # mv dist-lec01 public/lecture01
+          # 3. 【救出作戦】Slidevが生成した index.html を探し出してコピー
+          # node_modules 以外で index.html がある場所を自動で特定します
+          SEARCH_PATH=$(find . -name "index.html" -not -path "./node_modules/*" -not -path "./public/*" -printf '%h\n' | head -n 1)
+          
+          if [ -n "$SEARCH_PATH" ]; then
+            echo "Found slides at: $SEARCH_PATH"
+            cp -r "$SEARCH_PATH"/* public/template/
+          else
+            echo "Error: Slidev output not found!"
+            exit 1
+          fi
 
-          # 3. 共通ポータル（目次ページ）の作成
-          echo '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>講義資料リスト</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
+          # 4. ルート用の目次ページを作成
+          echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>講義資料</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
           touch public/.nojekyll
 
-      - name: Directory Structure Verification
-        # 最後に、意地でもファイルがあるかログに表示させます
-        run: find public -maxdepth 3
+      - name: Final Verification
+        # 最後に、意地でもファイルがあるかログに出力させます
+        run: |
+          echo "=== public フォルダの中身 ==="
+          ls -R public
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
