@@ -25,18 +25,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build
-        # ここで確実にビルドを実行
+      - - name: Build
+        # --out dist とすることで、template フォルダを作らずに dist 直下に書き出します
+        # --base /twcu-mm1/ とすることで、リポジトリ直下で動くように設定します
         run: pnpm slidev build slides/template.md --out dist --base /twcu-mm1/
 
       - name: Check dist directory
-        # ビルドされたファイルが本当に存在するか、ログに書き出す（重要！）
         run: |
           echo "=== Content of dist folder ==="
-          ls -R dist
+          ls -F dist
 
       - name: Upload artifact
-        # 409エラーを避けるため、公式のデプロイ用ステップを1回だけ実行
         uses: actions/upload-pages-artifact@v3
         with:
           path: 'dist'
