@@ -29,32 +29,33 @@ jobs:
 
       - name: Build and Organize
         run: |
-          # 1. 公開用と一時的な書き出し用フォルダを準備
-          rm -rf public out_template
-          mkdir -p public/template
+          # 1. 公開用フォルダのクリーンアップ
+          rm -rf public
+          mkdir -p public
 
-          # 2. 出力先を --out で明示的に指定してビルド
-          pnpm slidev build slides/template.md --out out_template --base /twcu-mm1/template/
+          # 2. 最初から public/template にビルドさせる
+          pnpm slidev build slides/template.md --out public/template --base /twcu-mm1/template/
 
-          # 3. 生成されたファイルを public/template にコピー
-          # (フォルダが二重になっていても対応できる書き方です)
-          if [ -d "out_template/template" ]; then
-            cp -RL out_template/template/. public/template/
-          else
-            cp -RL out_template/. public/template/
+          # 3. OSに「書き込みを完了させろ」と命令（sync）
+          sync
+
+          # 4. 二重フォルダ問題を修正（もし public/template/template になっていたら上に上げる）
+          # フォルダ移動が確実に行われるよう、パスを1つずつ確認します
+          if [ -d "public/template/template" ]; then
+            echo "二重フォルダを検出しました。修正します。"
+            mv public/template/template/* public/template/
+            rm -rf public/template/template
           fi
 
-          # 4. ポータルページ（目次）の作成
+          # 5. 目次ページの作成
           echo '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>講義資料リスト</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
           touch public/.nojekyll
 
-      - name: Verify Content
-        # 実際にファイルがコピーされたか、サイズとともに確認
+      - name: Final Verify
+        # 本当にファイルがあるか、意地でも確認します
         run: |
-          echo "=== public/template の中身 ==="
-          ls -F public/template
-          echo "=== 全体のサイズ ==="
-          du -sh public
+          echo "--- public フォルダの中身 ---"
+          ls -R public
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
