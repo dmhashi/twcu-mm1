@@ -25,27 +25,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build
-        # --out を指定せず、ビルド後にフォルダ構造を強制的に整える戦略に変えます
+      - name: Build Slides
+        # 今後スライドが増えたら、ここに同じように行を追加するだけでOKです
         run: |
-          pnpm slidev build slides/template.md --base /twcu-mm1/
+          # 1. template.md を /twcu-mm1/template/ としてビルド
+          pnpm slidev build slides/template.md --out dist/template --base /twcu-mm1/template/
           
-          # もし dist/template に書き出されていたら、dist 直下に移動する
-          if [ -d "dist/template" ]; then
-            echo "Moving files from dist/template to dist root..."
-            cp -r dist/template/* dist/
+          # 【重要】Slidevが二重にフォルダを作った場合の補正
+          if [ -d "dist/template/template" ]; then
+            mv dist/template/template/* dist/template/
+            rm -rf dist/template/template
           fi
 
-      - name: Debug - List output files
-        # dist フォルダが空でないか確認（ここで 404 回避を確認）
+      - name: Fix Assets Path
+        # ブラウザが /template/assets を見に行ってしまう問題を、
+        # /twcu-mm1/template/assets を見に行くように HTML を直接書き換えて強制解決します
         run: |
-          echo "Current directory: $(pwd)"
-          if [ -d "dist" ]; then
-            ls -F dist
-          else
-            echo "Error: dist directory was not created!"
-            exit 1
-          fi
+          sed -i 's|href="/template/|href="/twcu-mm1/template/|g' dist/template/index.html
+          sed -i 's|src="/template/|src="/twcu-mm1/template/|g' dist/template/index.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
