@@ -27,42 +27,25 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build All Slides
+      - name: Build Slides
         run: |
-          # 1. 公開用フォルダの準備
-          rm -rf dist temp_out
+          # 1. 出力先をきれいに掃除
+          rm -rf dist
           mkdir -p dist
 
-          # 2. 【スライド1: template】のビルド
-          # 一旦 temp_out にビルドし、中身を dist/template に確実に移動する
-          pnpm slidev build slides/template.md --out temp_out --base /twcu-mm1/template/
-          mkdir -p dist/template
-          # rsyncを使って、二重フォルダ問題を回避しつつ確実にコピー
-          if [ -d "temp_out/template" ]; then
-            rsync -a temp_out/template/ dist/template/
-          else
-            rsync -a temp_out/ dist/template/
-          fi
-          rm -rf temp_out
-
-          # -----------------------------------------------------------
-          # 今後、別のスライド（例: lecture01.md）を増やしたい場合は
-          # 以下の3行をコピーしてここに追加するだけでOKです
-          # -----------------------------------------------------------
-          # pnpm slidev build slides/lecture01.md --out temp_out --base /twcu-mm1/lecture01/
-          # mkdir -p dist/lecture01
-          # [ -d "temp_out/lecture01" ] && rsync -a temp_out/lecture01/ dist/lecture01/ || rsync -a temp_out/ dist/lecture01/
-          # rm -rf temp_out
-          # -----------------------------------------------------------
+          # 2. 直接 dist/template にビルドする
+          # Slidevは指定したディレクトリにファイルを生成します
+          pnpm slidev build slides/template.md --out dist/template --base /twcu-mm1/template/
 
           # 3. 共通設定とポータル（目次）の作成
           touch dist/.nojekyll
-          echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>講義資料リスト</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > dist/index.html
+          echo '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>講義資料リスト</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > dist/index.html
 
-      - name: Final Structure Check
+      - name: Verify Directory Structure
+        # 実際にアップロードされる前に中身を「検索」して確認します
         run: |
-          echo "=== 公開されるファイル構成 ==="
-          find dist -maxdepth 2
+          echo "=== 最終的なファイル構成の確認 ==="
+          find dist -name "index.html"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
