@@ -27,30 +27,35 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build All Slides
+      - name: Build Slides
         run: |
-          # 公開用フォルダの準備
-          rm -rf dist-final
-          mkdir -p dist-final/template
+          # 出力先をきれいに掃除
+          rm -rf public
+          mkdir -p public/template
 
-          # 【スライド1: template】を「単一のHTML」としてビルド
-          # --single-file オプションにより、すべてのデータが1枚のHTMLに凝縮されます
-          pnpm slidev build slides/template.md --single-file --out dist-final/template
+          # 標準的なビルド（--single-file を削除しました）
+          # --out に public/template を指定することで、ファイルをその中に閉じ込めます
+          pnpm slidev build slides/template.md --out public/template --base /twcu-mm1/template/
 
-          # ビルドされた index.html 以外の余計なフォルダを削除（念のため）
-          # 今後、別の講義を追加する場合は、ここに同じように build 命令を追加するだけです
+          # Slidevの仕様で public/template/template と二重になった場合の補正
+          if [ -d "public/template/template" ]; then
+            cp -r public/template/template/* public/template/
+            rm -rf public/template/template
+          fi
 
           # ルートの目次ページを作成
-          echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>講義資料</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > dist-final/index.html
-          touch dist-final/.nojekyll
+          echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>講義資料</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
+          touch public/.nojekyll
 
-      - name: Verify
-        run: ls -R dist-final
+      - name: Final Check
+        run: |
+          echo "=== public フォルダの最終構成 ==="
+          ls -R public
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'dist-final'
+          path: 'public'
 
       - name: Deploy to GitHub Pages
         id: deployment
