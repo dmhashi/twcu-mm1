@@ -27,36 +27,40 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and Search
+      - name: Build, Search and Patch
         run: |
-          # 1. 公開用フォルダを真っさらな状態にする
-          rm -rf public
+          # 1. フォルダの準備
+          rm -rf public temp_out
           mkdir -p public/template
 
-          # 2. スライドのビルド（出力先は Slidev 任せの dist フォルダにします）
-          pnpm slidev build slides/template.md --base /twcu-mm1/template/
+          # 2. ビルド（一旦 temp_out に書き出し）
+          pnpm slidev build slides/template.md --out temp_out --base /twcu-mm1/template/
 
-          # 3. 【救出作戦】Slidev が作った index.html を探し出し、中身を public/template へ
-          # node_modules 以外の場所から、サイズのある index.html を探します
-          BUILD_PATH=$(find . -name "index.html" -not -path "./node_modules/*" -not -path "./public/*" -size +1k -printf '%h\n' | head -n 1)
-          
+          # 3. index.html がある場所を探して救出
+          BUILD_PATH=$(find temp_out -name "index.html" -size +1k -printf '%h\n' | head -n 1)
           if [ -n "$BUILD_PATH" ]; then
-            echo "Found Slidev output at: $BUILD_PATH"
             cp -r "$BUILD_PATH"/* public/template/
           else
-            echo "Error: Slidev のビルド結果が見つかりません。"
+            echo "Build failed: index.html not found"
             exit 1
           fi
 
-          # 4. ルート（twcu-mm1/）用の目次ページを作成
+          # 4. 【重要】HTMLとJS内のパスを強制修正（パッチ）
+          # /template/ を /twcu-mm1/template/ に書き換えます
+          echo "Patching paths..."
+          sed -i 's|href="/template/|href="/twcu-mm1/template/|g' public/template/index.html
+          sed -i 's|src="/template/|src="/twcu-mm1/template/|g' public/template/index.html
+          # JSファイル内のパスも修正
+          find public/template/assets -name "*.js" -exec sed -i 's|/template/|/twcu-mm1/template/|g' {} +
+
+          # 5. ルート用の目次作成
           echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>講義資料</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
           touch public/.nojekyll
 
-      - name: Verify Artifact
-        # 公開直前に、本当にファイルが存在するか確認します
+      - name: Verify Patch
         run: |
-          echo "=== public/template の最終確認 ==="
-          ls -R public/template
+          echo "=== パッチ後のHTMLパス確認（最初の数行） ==="
+          grep -o 'href="/twcu-mm1/template/[^"]*"' public/template/index.html | head -n 5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
