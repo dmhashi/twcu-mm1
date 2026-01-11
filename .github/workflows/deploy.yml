@@ -27,41 +27,43 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build, Rescue and Patch
+      - name: Build and Patch
         run: |
-          # 1. フォルダの準備
-          rm -rf public temp_out
+          # 1. 公開用フォルダの準備
+          rm -rf public dist
           mkdir -p public/template
 
-          # 2. ビルド（一旦 temp_out に書き出し）
-          pnpm slidev build slides/template.md --out temp_out --base /twcu-mm1/template/
+          # 2. ビルドの実行（標準の dist フォルダに出力）
+          pnpm slidev build slides/template.md --base /twcu-mm1/template/
 
-          # 3. index.html がある場所を探して救出（前回の成功したロジック）
-          BUILD_PATH=$(find temp_out -name "index.html" -size +1k -printf '%h\n' | head -n 1)
-          if [ -n "$BUILD_PATH" ]; then
-            cp -r "$BUILD_PATH"/* public/template/
+          # 3. ファイルの配置（dist または dist/template から救出）
+          if [ -d "dist/template" ]; then
+            cp -r dist/template/* public/template/
           else
-            echo "Build failed: index.html not found"
-            exit 1
+            cp -r dist/* public/template/
           fi
 
-          # 4. 【今回の重要パッチ】HTML内のパスを物理的に書き換える
-          # /template/assets/ を /twcu-mm1/template/assets/ に一括置換します
-          echo "Patching paths to include repository name..."
-          sed -i 's|href="/template/|href="/twcu-mm1/template/|g' public/template/index.html
-          sed -i 's|src="/template/|src="/twcu-mm1/template/|g' public/template/index.html
-          
-          # JavaScriptファイル内部のパスも同様に書き換え
-          find public/template/assets -name "*.js" -exec sed -i 's|/template/|/twcu-mm1/template/|g' {} +
+          # 4. 【重要】真っ白な画面対策：HTML内のパスを物理的に書き換える
+          # Slidevが無視してしまった "/twcu-mm1/" を強制的に追加します
+          if [ -f "public/template/index.html" ]; then
+            echo "Patching paths..."
+            sed -i 's|href="/template/|href="/twcu-mm1/template/|g' public/template/index.html
+            sed -i 's|src="/template/|src="/twcu-mm1/template/|g' public/template/index.html
+            sed -i 's|href="/assets/|href="/twcu-mm1/template/assets/|g' public/template/index.html
+            sed -i 's|src="/assets/|src="/twcu-mm1/template/assets/|g' public/template/index.html
+          fi
 
-          # 5. ルート用の目次作成
-          echo '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>講義資料リスト</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
+          # 5. ポータル目次の作成
+          echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>講義資料</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
           touch public/.nojekyll
 
-      - name: Final Verification
+      - name: Verify Content
+        # 最終確認として、ファイル構成をログに出します
         run: |
-          echo "=== 修正後のHTMLソース（最初の数行） ==="
-          grep -o 'href="/twcu-mm1/template/[^"]*"' public/template/index.html | head -n 5
+          echo "=== public/template の内容 ==="
+          ls -F public/template
+          echo "=== パッチ後のパス確認 ==="
+          grep -o 'href="/twcu-mm1/template/assets/[^"]*"' public/template/index.html | head -n 3 || echo "No matches found"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
