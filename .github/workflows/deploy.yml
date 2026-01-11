@@ -25,18 +25,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and Flatten
-        # 1. ビルドを実行
-        # 2. もし template フォルダができてしまったら、中身を dist 直下に移動する
+      - name: Build
+        # 一旦、すべてのサブフォルダ設定を排除し、リポジトリ直下 (/twcu-mm1/) 専用にビルドします
         run: |
+          rm -rf dist
           pnpm slidev build slides/template.md --out dist --base /twcu-mm1/
-          if [ -d "dist/template" ]; then
-            mv dist/template/* dist/
-            rmdir dist/template
-          fi
 
       - name: Check dist directory
-        # ここで index.html が dist: の直下にあれば成功です
+        # ここで index.html が dist/ 直下にあることを確認します
         run: ls -F dist
 
       - name: Upload artifact
