@@ -27,43 +27,41 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and Organize
+      - name: Build and Locate
         run: |
           # 1. 公開用フォルダのクリーンアップ
-          rm -rf public dist
-          mkdir -p public
+          rm -rf public
+          mkdir -p public/template
 
-          # 2. ビルドの実行（標準の dist フォルダに書き出させます）
+          # 2. スライドのビルド（出力先は一旦Slidevに任せます）
           pnpm slidev build slides/template.md --base /twcu-mm1/template/
-          
-          # OSのファイルシステムを強制同期し、認識を確実にします
-          sync
 
-          # 3. ビルドされた中身を public/template に配置
-          # Slidevが dist/ の直下に作ったか、dist/template/ の中に作ったかを自動判別して移動
-          if [ -d "dist/template" ]; then
-            mv dist/template public/template
+          # 3. 【救出】node_modules以外から、Slidevが生成した index.html を探し出す
+          # 見つかった場所の中身を public/template にコピーします
+          BUILD_DIR=$(find . -name "index.html" -not -path "./node_modules/*" -not -path "./public/*" -printf '%h\n' | head -n 1)
+          
+          if [ -n "$BUILD_DIR" ]; then
+            echo "Found slides in: $BUILD_DIR"
+            cp -r $BUILD_DIR/* public/template/
           else
-            mv dist public/template
+            echo "Error: Slidev の出力ファイルが見つかりません。"
+            exit 1
           fi
 
-          # 4. 【重要】真っ白な画面対策（HTML内のパスを強制パッチ）
-          # href="/assets/" や href="/template/assets/" を正しいパスに書き換えます
+          # 4. ポータル目次の作成とパス修正
+          # 万が一のパスずれを強制修正
           sed -i 's|href="/template/|href="/twcu-mm1/template/|g' public/template/index.html
           sed -i 's|src="/template/|src="/twcu-mm1/template/|g' public/template/index.html
-          sed -i 's|href="/assets/|href="/twcu-mm1/template/assets/|g' public/template/index.html
-          sed -i 's|src="/assets/|src="/twcu-mm1/template/assets/|g' public/template/index.html
-
-          # 5. ポータル目次の作成
-          echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>講義資料</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
+          
+          echo '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>講義資料</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
           touch public/.nojekyll
 
-      - name: Final Verification
+      - name: Final Integrity Check
         run: |
-          echo "=== 最終フォルダ構成 ==="
-          ls -R public
-          echo "=== パス修正の確認 ==="
-          grep -o 'href="[^"]*assets/[^"]*"' public/template/index.html | head -n 3
+          echo "=== public/template の中身を確認 ==="
+          ls -F public/template
+          echo "=== HTMLのパス修正結果を確認 ==="
+          grep -o 'href="/twcu-mm1/template/assets/[^"]*"' public/template/index.html | head -n 3 || echo "Check failed"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
