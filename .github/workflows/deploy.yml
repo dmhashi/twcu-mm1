@@ -26,7 +26,9 @@ jobs:
         run: pnpm install
 
       # 【ここがポイント】スライドが増えたらここに行を追加します
-      - name: Build Template
+
+      # slides/template.md をビルドする場合の例
+      - name: Build Template Slide
         run: pnpm slidev build slides/template.md --out dist/template --base /twcu-mm1/template/
 
       - name: Setup Pages
