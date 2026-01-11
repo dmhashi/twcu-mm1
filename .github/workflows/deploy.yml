@@ -27,33 +27,36 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and Organize
+      - name: Build and Search
         run: |
-          # 1. 公開用フォルダの初期化
+          # 1. 公開用フォルダを真っさらな状態にする
           rm -rf public
           mkdir -p public/template
 
-          # 2. ビルドの実行
-          # 直接 public/template フォルダに書き出させます
-          pnpm slidev build slides/template.md --out public/template --base /twcu-mm1/template/
+          # 2. スライドのビルド（出力先は Slidev 任せの dist フォルダにします）
+          pnpm slidev build slides/template.md --base /twcu-mm1/template/
 
-          # 3. 【重要】Slidevの「二重フォルダ作成」を補正
-          # public/template/template/index.html のようになっていた場合、中身を引き上げます
-          if [ -d "public/template/template" ]; then
-            echo "Nesting detected. Fixing structure..."
-            cp -r public/template/template/* public/template/
-            rm -rf public/template/template
+          # 3. 【救出作戦】Slidev が作った index.html を探し出し、中身を public/template へ
+          # node_modules 以外の場所から、サイズのある index.html を探します
+          BUILD_PATH=$(find . -name "index.html" -not -path "./node_modules/*" -not -path "./public/*" -size +1k -printf '%h\n' | head -n 1)
+          
+          if [ -n "$BUILD_PATH" ]; then
+            echo "Found Slidev output at: $BUILD_PATH"
+            cp -r "$BUILD_PATH"/* public/template/
+          else
+            echo "Error: Slidev のビルド結果が見つかりません。"
+            exit 1
           fi
 
-          # 4. ポータル目次と設定ファイルの作成
+          # 4. ルート（twcu-mm1/）用の目次ページを作成
           echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>講義資料</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
           touch public/.nojekyll
 
-      - name: Verify and List
-        # アップロード直前の状態を意地でも確認します
+      - name: Verify Artifact
+        # 公開直前に、本当にファイルが存在するか確認します
         run: |
-          echo "=== public フォルダの最終構成 ==="
-          find public -maxdepth 3
+          echo "=== public/template の最終確認 ==="
+          ls -R public/template
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
