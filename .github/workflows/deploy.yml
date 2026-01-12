@@ -27,48 +27,27 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and Patch
+      - name: Build All Slides
         run: |
-          # 1. 公開用フォルダの準備
-          rm -rf public dist
-          mkdir -p public/template
+          # 1. 以前の成果物をクリア
+          rm -rf dist
 
-          # 2. ビルドの実行（標準の dist フォルダに出力）
-          pnpm slidev build slides/template.md --base /twcu-mm1/template/
+          # 2. スライドのビルド
+          # フォルダを分けたい場合は --out でディレクトリを指定します
+          pnpm slidev build template.md --out dist/template --base /twcu-mm1/template/
 
-          # 3. ファイルの配置（dist または dist/template から救出）
-          if [ -d "dist/template" ]; then
-            cp -r dist/template/* public/template/
-          else
-            cp -r dist/* public/template/
-          fi
+          # 3. ポータルページ（目次）の作成
+          echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>講義資料</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > dist/index.html
+          touch dist/.nojekyll
 
-          # 4. 【重要】真っ白な画面対策：HTML内のパスを物理的に書き換える
-          # Slidevが無視してしまった "/twcu-mm1/" を強制的に追加します
-          if [ -f "public/template/index.html" ]; then
-            echo "Patching paths..."
-            sed -i 's|href="/template/|href="/twcu-mm1/template/|g' public/template/index.html
-            sed -i 's|src="/template/|src="/twcu-mm1/template/|g' public/template/index.html
-            sed -i 's|href="/assets/|href="/twcu-mm1/template/assets/|g' public/template/index.html
-            sed -i 's|src="/assets/|src="/twcu-mm1/template/assets/|g' public/template/index.html
-          fi
-
-          # 5. ポータル目次の作成
-          echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>講義資料</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li></ul></body></html>' > public/index.html
-          touch public/.nojekyll
-
-      - name: Verify Content
-        # 最終確認として、ファイル構成をログに出します
-        run: |
-          echo "=== public/template の内容 ==="
-          ls -F public/template
-          echo "=== パッチ後のパス確認 ==="
-          grep -o 'href="/twcu-mm1/template/assets/[^"]*"' public/template/index.html | head -n 3 || echo "No matches found"
+      - name: Structure Verification
+        # 正常にビルドされたか、ログで最終確認を行います
+        run: find dist -maxdepth 3
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'public'
+          path: 'dist'
 
       - name: Deploy to GitHub Pages
         id: deployment
