@@ -32,7 +32,6 @@ jobs:
           rm -rf dist
           
           # 各スライドのビルド
-          pnpm slidev build template.md --out dist/template --base /twcu-mm1/template/
           pnpm slidev build lesson01.md --out dist/lesson01 --base /twcu-mm1/lesson01/
 
           # 自作した index.html を公開フォルダのルートにコピー
