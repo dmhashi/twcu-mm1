@@ -29,19 +29,14 @@ jobs:
 
       - name: Build All Slides
         run: |
-          # 1. 成果物フォルダをクリア
           rm -rf dist
-
-          # 2. 【既存】template.md のビルド
+          
+          # 各スライドのビルド
           pnpm slidev build template.md --out dist/template --base /twcu-mm1/template/
-
-          # 3. 【追加】lesson01.md のビルド
-          # --out で出力先フォルダを分け、--base もそれに合わせるのがコツです
           pnpm slidev build lesson01.md --out dist/lesson01 --base /twcu-mm1/lesson01/
 
-          # 4. ポータルページ（目次）の更新
-          # <li> タグを増やして、新しいスライドへのリンクを追加します
-          echo '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>講義資料リスト</title></head><body><h1>講義資料リスト</h1><ul><li><a href="template/">Template Slide</a></li><li><a href="lesson01/">第1回 講義資料</a></li></ul></body></html>' > dist/index.html
+          # 自作した index.html を公開フォルダのルートにコピー
+          cp index.html dist/index.html
           
           touch dist/.nojekyll
 
